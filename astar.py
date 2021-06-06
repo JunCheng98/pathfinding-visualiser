@@ -1,7 +1,7 @@
 import pygame
 import math
 
-from queue import PriorityQueue
+from queue import PriorityQueue, Queue
 
 WIDTH = 800
 WIN = pygame.display.set_mode((WIDTH, WIDTH))
@@ -156,6 +156,41 @@ def astar(draw, grid, start, end):
 
     return False
 
+def bfs(draw, grid, start, end):
+    frontier = Queue()
+    frontier.put(start)
+    came_from = {}
+
+    visited = {start}
+
+    while not frontier.empty():
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+
+        current = frontier.get()
+
+        for neighbour in current.neighbours:
+            if neighbour == end:
+                came_from[neighbour] = current
+                reconstruct_path(came_from, end, draw)
+                end.make_end()
+                start.make_start()
+                return True
+            
+            if neighbour not in visited:
+                came_from[neighbour] = current
+                frontier.put(neighbour)
+                visited.add(neighbour)
+                neighbour.make_open()
+
+        draw()
+
+        if current != start:
+            current.make_closed()
+
+    return False
+
 
 # initialises the grid
 def make_grid(rows, width): # TODO: change length
@@ -242,12 +277,21 @@ def main(win, width):
 
             # TODO: use button clicking to trigger this, and disable clicking until algo finishes
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE and start and end:
+                if event.key == pygame.K_a and start and end:
                     for row in grid:
                         for spot in row:
                             spot.update_neighbours(grid)
 
                     astar(lambda: draw(win, grid, ROWS, width), grid, start, end)
+
+                if event.key == pygame.K_b and start and end:
+                    for row in grid:
+                        for spot in row:
+                            spot.update_neighbours(grid)
+
+                    bfs(lambda: draw(win, grid, ROWS, width), grid, start, end)
+
+                #TODO: add dijkstra and weighted tiles
 
                 if event.key == pygame.K_c:
                     start = None
