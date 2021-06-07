@@ -2,6 +2,7 @@ import pygame
 import math
 
 from queue import PriorityQueue, Queue
+from random import randrange
 
 WIDTH = 800
 WIN = pygame.display.set_mode((WIDTH, WIDTH))
@@ -27,6 +28,7 @@ class Node:
         self.y = col * width
         self.colour = WHITE
         self.neighbours = []
+        self.cost = 1
         self.width = width
         self.total_rows = total_rows
 
@@ -89,6 +91,9 @@ class Node:
 
     def __lt__(self, other):
         return False
+
+    def __str__(self):
+        return str(self.cost)
 
 def reconstruct_path(came_from, current, draw):
     while current in came_from:
@@ -156,6 +161,7 @@ def astar(draw, grid, start, end):
 
     return False
 
+
 def bfs(draw, grid, start, end):
     frontier = Queue()
     frontier.put(start)
@@ -192,6 +198,99 @@ def bfs(draw, grid, start, end):
     return False
 
 
+def dfs(draw, grid, start, end):
+    frontier = [] # stack
+    frontier.append(start)
+    came_from = {}
+
+    visited = set()
+
+    while frontier:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+
+        current = frontier.pop()
+        
+        if current in visited:
+            continue
+        
+        visited.add(current)
+
+        for neighbour in current.neighbours:
+            if neighbour == end:
+                came_from[neighbour] = current
+                reconstruct_path(came_from, end, draw)
+                end.make_end()
+                start.make_start()
+                return True
+
+            if neighbour not in visited:
+                came_from[neighbour] = current
+                frontier.append(neighbour)
+                neighbour.make_open()
+        
+        draw()
+
+        if current != start:
+            current.make_closed()
+
+    return False
+
+
+def dijkstra(draw, grid, costGrid, start, end):
+    frontier = PriorityQueue()
+    came_from = {}
+    frontier.put((0, start))
+
+    visited = set()
+
+    while not frontier.empty():
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+
+        current_item = frontier.get()
+        current = current_item[1]
+        cost = current_item[0]
+        visited.add(current)
+
+        for neighbour in current.neighbours:
+            total = cost + neighbour.cost
+
+            if neighbour in visited:
+                continue
+
+            if neighbour == end:
+                came_from[neighbour] = current
+                reconstruct_path(came_from, end, draw)
+                end.make_end()
+                start.make_start()
+                return True
+
+            if total < costGrid[neighbour.row][neighbour.col]:
+                costGrid[neighbour.row][neighbour.col] = total
+                came_from[neighbour] = current
+                frontier.put((total, neighbour))
+                neighbour.make_open()
+        
+        draw()
+
+        if current != start:
+            current.make_closed() 
+
+    return False
+
+
+# randomise the cost for each node
+def allocate(grid, start):
+    for row in grid:
+        for node in row:
+            node.cost = randrange(100)
+            if node == start:
+                node.cost = 0
+
+
 # initialises the grid
 def make_grid(rows, width): # TODO: change length
     grid = []
@@ -201,6 +300,16 @@ def make_grid(rows, width): # TODO: change length
         for j in range(rows):
             node = Node(i, j, gap, rows)
             grid[i].append(node)
+    return grid
+
+# make empty grid to keep track of cost
+def make_costGrid(rows):
+    grid = []
+    for i in range(rows):
+        row = []
+        for j in range(rows):
+            row.append(math.inf)
+        grid.append(row)
     return grid
 
 # draws horizontal and vertical lines to form grids
@@ -241,6 +350,7 @@ def main(win, width):
     end = None
 
     run = True
+    isWeighted = False
 
     while run:
         draw(win, grid, ROWS, width)
@@ -275,7 +385,6 @@ def main(win, width):
                 elif node == end:
                     end = None
 
-            # TODO: use button clicking to trigger this, and disable clicking until algo finishes
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_a and start and end:
                     for row in grid:
@@ -291,12 +400,28 @@ def main(win, width):
 
                     bfs(lambda: draw(win, grid, ROWS, width), grid, start, end)
 
-                #TODO: add dijkstra and weighted tiles
+                if event.key == pygame.K_d and start and end:
+                    for row in grid:
+                        for spot in row:
+                            spot.update_neighbours(grid)
+
+                    dfs(lambda: draw(win, grid, ROWS, width), grid, start, end)
+
+                if event.key == pygame.K_j and start and end:
+                    for row in grid:
+                        for spot in row:
+                            spot.update_neighbours(grid)
+
+                    dijkstra(lambda: draw(win, grid, ROWS, width), grid, make_costGrid(ROWS), start, end)
+
+                if event.key == pygame.K_r and start and end:
+                    allocate(grid, start)
+                    isWeighted = True
 
                 if event.key == pygame.K_c:
                     start = None
                     end = None
-                    # TODO
+                    isWeighted = False
                     grid = make_grid(ROWS, width)
 
 
